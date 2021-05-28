@@ -31,7 +31,6 @@ class Pipe:
     def __init__(self):
         self.img = pygame.image.load(os.path.join("img", "pipe.png")).convert_alpha()
 
-
     def draw(self, win):
         pass
 
