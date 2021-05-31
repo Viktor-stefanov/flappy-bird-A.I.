@@ -4,7 +4,6 @@ import pickle
 import neat
 import sys
 import os
-from score_actions import *
 
 pygame.init()
 
@@ -110,6 +109,7 @@ class Pipes:
         self.x -= 5
 
     def distance_to_poles(self, bird):
+        # used for the A.I.'s input values
         top_distance_coords = (abs(bird.x - self.x), abs(bird.y - self.top_pipe.get_height()))
         bottom_distance_coords = (abs(bird.x - self.x), abs(bird.y - self.bottom_y))
 
@@ -159,130 +159,6 @@ class Base:
     def draw(self, win):
         win.blit(self.img, (self.x, 688))
         win.blit(self.img, (self.x_2, 688))
-
-def respawn_menu(win, scr, hs):
-    score_label_position = (SCREEN_WIDTH // 2.4, 160)
-    score_label = score_font.render("score:", False, (242, 92, 51))
-    score_position = (SCREEN_WIDTH // 2.1, 205)
-    score = score_font.render(str(scr), False, (255, 255, 255))
-    high_score_label_position = (SCREEN_WIDTH // 2.9, 250)
-    high_score_label = score_font.render("high score:", False, (242, 92, 51))
-    high_score_position = (SCREEN_WIDTH // 2.1, 295)
-    high_score = score_font.render(str(hs), False, (255, 255, 255))
-    restart_position = (SCREEN_WIDTH // 2.6, 400)
-    menu_label_position = (SCREEN_WIDTH // 4, 120)
-
-    win.blit(menu_img, menu_label_position)
-    win.blit(score_label, score_label_position)
-    win.blit(score, score_position)
-    win.blit(high_score_label, high_score_label_position)
-    win.blit(high_score, high_score_position)
-    restart_button = win.blit(restart_img, restart_position)
-    pygame.display.update()
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(), sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    pygame.quit(), sys.exit()
-                # use the enter key as a restart button as well
-                elif event.key in (pygame.K_RETURN, pygame.K_r):
-                    play_game(win)
-                elif event.key == pygame.K_m:
-                    main_menu(win)
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == pygame.BUTTON_LEFT:
-                    # check if the user clicked on restart
-                    mouse_pos = pygame.mouse.get_pos()
-                    click = restart_button.collidepoint(mouse_pos[0], mouse_pos[1])
-                    if click != 0:
-                        play_game(win)
-
-def redraw_window(win, bird, base, pipes, score=None):
-    # redraw all the changes to the screen and update it
-    win.blit(background_img, (0, 0))
-    for pipe in pipes:
-        pipe.draw(win)
-    if score is not None:
-        win.blit(score, (250, 100))
-    base.draw(win)
-    bird.draw(win)
-    pygame.display.update()
-
-def play_game(win):
-    # create a 'clock' object to manipulate how fast/slow the in-game time passes
-    clock = pygame.time.Clock()
-    # create a sprite group to hold all the images that are on the screen
-    # hard code the bird (x, y) pos (I feel like that's justified because the screen size is fixed. Create the player bird object
-    bird_x = 150
-    bird_y = 380
-    bird = Bird(bird_x, bird_y)
-    # create the first pipes and a pipes group
-    pipes = [Pipes()]
-    # create the base
-    base = Base()
-    game_started = False
-    score = 0
-    # create the main game loop
-    while True:
-        # fetch all the events and check for specific keypresses, etc...
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(), sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    pygame.quit(), sys.exit()
-                elif event.key == pygame.K_SPACE:
-                    bird.jump()
-                    game_started = True
-                elif event.key == pygame.K_m:
-                    main_menu(win)
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == pygame.BUTTON_LEFT:
-                    bird.jump()
-                    game_started = True
-
-        if game_started is True:
-            for pipe in pipes:
-                pipe.move()
-                # check if the bird has passed a pipe
-                if pipe.x < bird.x and pipe.passed is False:
-                    pipe.passed = True
-                    score += 1
-                    pipes.append(Pipes())
-                # check if a pipe has left the screen
-                if pipe.x <= 0 - pipe.top_pipe.get_width():
-                    pipes.remove(pipe)
-                # check for collisions between the bird and the pipes
-                hits = pipe.collides_with_bird(bird)
-                fall = bird.y + bird_imgs[0].get_height() >= base.y
-                if True in (hits, fall):
-                    # get the high score and update it if the current score is higher
-                    high_score = get_high_score()
-                    if score > high_score:
-                        high_score = score
-                        update_high_score(str(score))
-
-                    respawn_menu(win, score, high_score)
-
-            bird.animate()
-            bird.move()
-            base.move()
-
-            score_render = score_font.render(str(score), False, (255, 255, 255))
-            redraw_window(win, bird, base, pipes, score_render)
-        else:
-            if bird.y == 390:
-                bird.velocity = -bird.velocity
-            elif bird.y == 360:
-                bird.velocity = -bird.velocity
-            bird.move()
-
-            redraw_window(win, bird, base, pipes)
-
-        clock.tick(60)
 
 def redraw_ai_window(win, birds, pipes, base):
     win.blit(background_img, (0, 0))
@@ -365,34 +241,5 @@ def run():
 
     print(winner)
 
-def main_menu(win):
-    menu_pos = (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 5)
-    play_game_pos = (SCREEN_WIDTH // 2.8, SCREEN_HEIGHT // 3.5)
-    play_game_opt = score_font.render("Play Game", False, (242, 92, 51))
-    ai_game_pos = (SCREEN_WIDTH // 3.15, SCREEN_HEIGHT // 2.2)
-    ai_game = score_font.render("Let A.I. play", False, (242, 92, 51))
-
-    win.blit(background_img, (0, 0))
-    win.blit(menu_img, menu_pos)
-    play = win.blit(play_game_opt, play_game_pos)
-    ai_play = win.blit(ai_game, ai_game_pos)
-    pygame.display.update()
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == pygame.BUTTON_LEFT:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
-                    if play.collidepoint(mouse_x, mouse_y):
-                        play_game(win)
-                    elif ai_play.collidepoint(mouse_x, mouse_y):
-                        run()
-            elif event.type == pygame.QUIT:
-                pygame.quit(), sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    pygame.quit(), sys.exit()
-
-
 if __name__ == "__main__":
-    main_menu(surface)
+    run()
