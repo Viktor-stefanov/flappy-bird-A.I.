@@ -32,7 +32,6 @@ class Bird(pygame.sprite.Sprite):
         self.animation_add = 1 # variable exists so as to be able to do 0 - 1 - 2 - 1 - 0 animations with the current_animation variable
         self.current_animation = 0
         self.rect = self.imgs[self.current_animation].get_rect()
-        self.mask = pygame.mask.from_surface(self.imgs[self.current_animation])
         self.rect[0] = x
         self.rect[1] = y
         self.tilt = 0
@@ -93,7 +92,6 @@ class Pipe(pygame.sprite.Sprite):
     def __init__(self, other_pipe=None):
         pygame.sprite.Sprite.__init__(self)
         self.pipe = self.generate_pipe(other_pipe)
-        self.mask = pygame.mask.from_surface(self.img)
         self.rect = self.pipe.get_rect()
         self.rect[0] = SCREEN_WIDTH
         self.passed = False
@@ -256,7 +254,8 @@ def main(win):
                     pipes.remove(pipe)
 
             # check for collisions between the bird and the pipes
-            hits = pygame.sprite.spritecollideany(bird, pipes, pygame.sprite.collide_rect_ratio(0.99))
+            # hits = pygame.sprite.spritecollideany(bird, pipes, pygame.sprite.collide_rect_ratio(0.99))
+            hits = pygame.sprite.spritecollideany(bird, pipes)
             falls = pygame.sprite.collide_rect(bird, base)
             if hits is not None or falls != 0:
                 # get the high score and update it if the current score is higher
