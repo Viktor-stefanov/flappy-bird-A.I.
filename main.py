@@ -337,6 +337,8 @@ def ai_play_game(genomes, config):
                     main_menu(surface)
                 elif event.key == pygame.K_d:
                     DRAW_LINES = not DRAW_LINES
+                elif event.key == pygame.K_r:
+                    run()
 
         # to avoid using the second pipe for input while still haven't passed the first, check on which pipe we are
         pipe_idx = 0
