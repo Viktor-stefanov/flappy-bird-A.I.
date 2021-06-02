@@ -29,6 +29,6 @@ M - MAIN MENU
 
 ## Instructions
 If you want to tinker around with the fitness function (ai_play_game line: 305) I have left useful comments
-to guide you and tell you what to do. You can change the number of inputs from 3 to 2 (just uncomment & replace variable names),
-you can mess with the inputs if you wish to. To make any changes to the A.I. behaviour outside the fitness function
+to guide you and tell you what to do. You can change the number of inputs from 3 to 2 (just uncomment the variables, replace variables in the activation function call and change the # of inputs in the config file),
+you can mess with the inputs or with the fitness gain/loss if you wish to. To make any changes to the A.I. behaviour outside the fitness function
 (activation function, mutate rate, add note rate, population size...) you have to change the config file.
