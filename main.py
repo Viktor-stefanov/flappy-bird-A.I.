@@ -27,6 +27,8 @@ menu_img.set_colorkey((255, 255, 255))
 
 score_font = pygame.font.SysFont("ComicSansMS", 40)
 small_font = pygame.font.SysFont("ComicSansMS", 22)
+
+DRAW_LINES = False
 GEN = 0
 
 class Bird:
@@ -276,27 +278,32 @@ def play_game(win):
 
         clock.tick(60)
 
-def redraw_ai_window(win, birds, pipes, base, score, gen):
+def redraw_ai_window(win, birds, pipes, base, score, gen, pipe_idx):
     # redraw the window while the AI is playing
+    global DRAW_LINES
+
     win.blit(background_img, (0, 0))
     base.draw(win)
     for pipe_pair in pipes:
         pipe_pair.draw(win)
     for bird in birds:
         bird.draw(win)
+        if DRAW_LINES is True:
+            pygame.draw.line(win, (245, 51, 51), (bird.x + 30, bird.y + 10), (pipes[pipe_idx].x + 50, pipes[pipe_idx].top_y), 3)
+            pygame.draw.line(win, (245, 51, 51), (bird.x + 30, bird.y + 10), (pipes[pipe_idx].x + 50, pipes[pipe_idx].bottom_y), 3)
 
     # render the score, current generation and bird's alive and blit them to the screen
     score_render = score_font.render(f"Score: {score}", False, (255, 255, 255))
     gen_render = score_font.render(f"Generation: {gen}", False, (255, 255, 255))
     bird_count_render = score_font.render(f"Birds alive: {len(birds)}", False, (255, 255, 255))
-    win.blit(score_render, (SCREEN_WIDTH - score_render.get_width() * 1.5, 10))
+    win.blit(score_render, (SCREEN_WIDTH - score_render.get_width() - 30, 10))
     win.blit(gen_render, (15, 10))
     win.blit(bird_count_render, (15, 50))
 
     pygame.display.update()
 
 def ai_play_game(genomes, config):
-    global GEN
+    global GEN, DRAW_LINES
     # clear the screen up to this point and create a clock object
     surface.fill((0, 0, 0))
     clock = pygame.time.Clock()
@@ -328,6 +335,8 @@ def ai_play_game(genomes, config):
                     pygame.quit(), sys.exit()
                 elif event.key == pygame.K_m:
                     main_menu(surface)
+                elif event.key == pygame.K_d:
+                    DRAW_LINES = not DRAW_LINES
 
         # to avoid using the second pipe for input while still haven't passed the first, check on which pipe we are
         pipe_idx = 0
@@ -346,7 +355,7 @@ def ai_play_game(genomes, config):
             if output[0] > 0.5:
                 bird.jump()
 
-        # rem = [] # remove things inside the for loop so that the index doesn't break
+        rem_pipes = []
         add_pipe = False
         for pipe_pair in pipes:
             pipe_pair.move()
@@ -359,16 +368,12 @@ def ai_play_game(genomes, config):
                     nets.pop(idx)
 
             if pipe_pair.x + pipe_img.get_width() < 0:
-                pipes.remove(pipe_pair)
-                # rem.append(pipe_pair)
+                rem_pipes.append(pipe_pair)
 
             if len(birds) > 0:
                 if pipe_pair.passed is False and birds[0].x >= pipe_pair.x:
                     pipe_pair.passed = True
                     add_pipe = True
-
-        # for r in rem:
-        #     pipes.remove(r)
 
         if add_pipe:
             score += 1
@@ -383,14 +388,19 @@ def ai_play_game(genomes, config):
                 birds.pop(birds.index(bird))
 
         base.move()
-        redraw_ai_window(surface, birds, pipes, base, score, GEN)
+        redraw_ai_window(surface, birds, pipes, base, score, GEN, pipe_idx)
 
+        for pipe in rem_pipes:
+            pipes.remove(pipe)
         # save the bird if they reach score > 100
         if score > 100:
             with open("winner", "wb") as f:
                 pickle.dump(nets[0], f)
 
 def run():
+    global GEN
+
+    GEN = 0
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "config")
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
