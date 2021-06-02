@@ -1,9 +1,10 @@
 import pygame
-import random
 import pickle
+import random
 import neat
 import sys
 import os
+
 from score_actions import *
 
 pygame.init()
@@ -19,12 +20,14 @@ background_img = pygame.transform.scale(pygame.image.load(os.path.join("img", "b
 base_img = pygame.transform.scale(pygame.image.load(os.path.join("img", "base.png")).convert_alpha(), (1000, 112))
 bird_imgs = [pygame.transform.scale(pygame.image.load(fr"img\bird{n}.png").convert_alpha(), (60, 40)) for n in range(1, 4)]
 bird_imgs.extend([pygame.transform.scale(pygame.image.load(fr"img\bird{n}.png").convert_alpha(), (60, 40)) for n in range(2, 0, -1)])
-pipe_img = pygame.image.load(os.path.join("img", "pipe.png")).convert_alpha()
+pipe_img = pygame.transform.scale2x(pygame.image.load(os.path.join("img","pipe.png")).convert_alpha())
 restart_img = pygame.image.load(os.path.join("img", "restart_button.png")).convert_alpha()
 menu_img = pygame.transform.scale(pygame.image.load(os.path.join("img", "menu.png")).convert_alpha(), (300, 400))
 menu_img.set_colorkey((255, 255, 255))
 
 score_font = pygame.font.SysFont("ComicSansMS", 40)
+small_font = pygame.font.SysFont("ComicSansMS", 22)
+GEN = 0
 
 class Bird:
     """ bird class represents the player bird """
@@ -33,7 +36,6 @@ class Bird:
         self.velocity = 1
         self.current_animation = 0
         self.animation_delay = 0
-        self.fitness = 0
         self.x = x
         self.y = y
         self.tilt = 0
@@ -42,6 +44,7 @@ class Bird:
         self.jump_direction = 0
 
     def move(self):
+        self.animate()
         # if the bird is titled downwards increase the speed - OBVIOUSLY
         if self.tilt < 0:
             self.velocity = 5 + (self.tilt * -0.05)
@@ -86,7 +89,6 @@ class Bird:
         return mask
 
     def draw(self, win):
-        self.fitness += 1
         current_img = self.imgs[self.current_animation]
         # rotate the image and make it's rect's center to the non-rotated image's center so the collision works better
         rotated_image = pygame.transform.rotate(current_img, self.tilt)
@@ -96,34 +98,24 @@ class Bird:
 
 class Pipes:
     img = pipe_img
-    def __init__(self, other_pipe=None):
+    def __init__(self):
         self.x = SCREEN_WIDTH
-        self.bottom_height = random.randint(50, 400)
-        self.bottom_y = SCREEN_HEIGHT - self.bottom_height - base_img.get_height()
+        self.top_y = random.randint(100, 400)
+        self.top_pipe = pygame.transform.scale(pygame.transform.flip(self.img, False, True), (100, self.top_y))
+        self.bottom_y = int(self.top_y + bird_imgs[0].get_height() * 4.5)
+        self.bottom_height = SCREEN_HEIGHT - self.bottom_y - base_img.get_height()
         self.bottom_pipe = pygame.transform.scale(self.img, (100, self.bottom_height))
-        self.top_y = 0
-        self.top_height = self.bottom_y - (bird_imgs[0].get_height() * 4)
-        self.top_pipe = pygame.transform.scale(pygame.transform.flip(self.img, False, True), (100, self.top_height))
         self.passed = False
 
     def move(self):
         self.x -= 5
-
-    def distance_to_poles(self, bird):
-        top_distance_coords = (abs(bird.x - self.x), abs(bird.y - self.top_pipe.get_height()))
-        bottom_distance_coords = (abs(bird.x - self.x), abs(bird.y - self.bottom_y))
-
-        top_distance = int(sum(top_distance_coords) / len(top_distance_coords))
-        bottom_distance = int(sum(bottom_distance_coords) / len(bottom_distance_coords))
-
-        return top_distance, bottom_distance
 
     def collides_with_bird(self, bird):
         bird_mask = bird.get_mask()
         bottom_mask = pygame.mask.from_surface(self.bottom_pipe)
         top_mask = pygame.mask.from_surface(self.top_pipe)
 
-        top_offset = (self.x - bird.x, self.top_y - round(bird.y) + 5)
+        top_offset = (self.x - bird.x, -round(bird.y) + 10)
         bottom_offset = (self.x - bird.x, self.bottom_y - round(bird.y) + 8)
 
         top_collision = bird_mask.overlap(top_mask, top_offset)
@@ -133,7 +125,7 @@ class Pipes:
             return True
 
     def draw(self, win):
-        win.blit(self.top_pipe, (self.x, self.top_y))
+        win.blit(self.top_pipe, (self.x, 0))
         win.blit(self.bottom_pipe, (self.x, self.bottom_y))
 
 
@@ -216,7 +208,7 @@ def play_game(win):
     clock = pygame.time.Clock()
     # create a sprite group to hold all the images that are on the screen
     # hard code the bird (x, y) pos (I feel like that's justified because the screen size is fixed. Create the player bird object
-    bird_x = 150
+    bird_x = 200
     bird_y = 380
     bird = Bird(bird_x, bird_y)
     # create the first pipes and a pipes group
@@ -267,7 +259,7 @@ def play_game(win):
 
                     respawn_menu(win, score, high_score)
 
-            bird.animate()
+            # bird.animate()
             bird.move()
             base.move()
 
@@ -284,66 +276,119 @@ def play_game(win):
 
         clock.tick(60)
 
-def redraw_ai_window(win, birds, pipes, base):
+def redraw_ai_window(win, birds, pipes, base, score, gen):
+    # redraw the window while the AI is playing
     win.blit(background_img, (0, 0))
     base.draw(win)
     for pipe_pair in pipes:
-        pipe_pair.move()
         pipe_pair.draw(win)
     for bird in birds:
         bird.draw(win)
+
+    # render the score, current generation and bird's alive and blit them to the screen
+    score_render = score_font.render(f"Score: {score}", False, (255, 255, 255))
+    gen_render = score_font.render(f"Generation: {gen}", False, (255, 255, 255))
+    bird_count_render = score_font.render(f"Birds alive: {len(birds)}", False, (255, 255, 255))
+    win.blit(score_render, (SCREEN_WIDTH - score_render.get_width() * 1.5, 10))
+    win.blit(gen_render, (15, 10))
+    win.blit(bird_count_render, (15, 50))
+
     pygame.display.update()
 
-def eval_genome(genome, config):
-    # clear the screen up to this point
+def ai_play_game(genomes, config):
+    global GEN
+    # clear the screen up to this point and create a clock object
     surface.fill((0, 0, 0))
     clock = pygame.time.Clock()
 
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
-    birds = [Bird(150, 380) for _ in range(50)]
+    # create a container for the birds, their respective neural network and genome
+    GEN += 1
+    birds = []
+    gnms = []
+    nets = []
+    for genome_id, genome in genomes:
+        net = neat.nn.FeedForwardNetwork.create(genome, config) # create the neural network
+        genome.fitness = 0 # assign initial fitness to each genome
+        gnms.append(genome)
+        nets.append(net)
+        birds.append(Bird(200, 350))
+
     pipes = [Pipes()]
     base = Base()
-    fitnesses = []
 
-    while True:
+    score = 0
+    # main game loop
+    while len(birds) > 0:
+        clock.tick(60)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(), sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_q, pygame.K_ESCAPE):
                     pygame.quit(), sys.exit()
+                elif event.key == pygame.K_m:
+                    main_menu(surface)
 
-        for bird in birds:
+        # to avoid using the second pipe for input while still haven't passed the first, check on which pipe we are
+        pipe_idx = 0
+        if len(pipes) > 1 and birds[0].x >= pipes[0].x + 100:
+            pipe_idx = 1
+
+        # move the birds and give the activation function input, take the output and take action based on this output - jump? Yes/No
+        for idx, bird in enumerate(birds):
             bird.move()
-            bird.animate()
-            for pipe_pair in pipes:
-                if pipe_pair.passed is False:
-                    top_distance, bottom_distance = pipe_pair.distance_to_poles(bird)
-                    inputs = [bird.y, top_distance, bottom_distance]
-                    action = net.activate(inputs)[0]
+            gnms[idx].fitness += 0.1 # give the bird + 0.1 fitness for each frame it stays alive
+            # distance = bird.y - (pipes[pipe_idx].top_y + 120) # Use if # of inputs is 1
+            top_pipe_distance = abs(bird.y - pipes[pipe_idx].top_y) # use if # of inputs is 3
+            bottom_pipe_distance = abs(bird.y - pipes[pipe_idx].bottom_y) # use if # of inputs is 3
 
-                    if action == 1.0:
-                        bird.jump()
+            output = nets[birds.index(bird)].activate([bird.y, top_pipe_distance, bottom_pipe_distance]) # change according to the # of inputs
+            if output[0] > 0.5:
+                bird.jump()
 
-                if bird.x >= pipe_pair.x:
-                    pipe_pair.passed = True
-
+        # rem = [] # remove things inside the for loop so that the index doesn't break
+        add_pipe = False
+        for pipe_pair in pipes:
+            pipe_pair.move()
+            for idx, bird in enumerate(birds):
                 collision = pipe_pair.collides_with_bird(bird)
                 if collision is True:
-                    fitnesses.append(bird.fitness)
-                    birds.remove(bird)
-            fall = bird.y + bird.imgs[0].get_height() >= base.y
-            if fall is True:
-                fitnesses.append(bird.fitness)
-                birds.remove(bird)
+                    gnms[idx].fitness -= 2
+                    birds.pop(idx)
+                    gnms.pop(idx)
+                    nets.pop(idx)
+
+            if pipe_pair.x + pipe_img.get_width() < 0:
+                pipes.remove(pipe_pair)
+                # rem.append(pipe_pair)
+
+            if len(birds) > 0:
+                if pipe_pair.passed is False and birds[0].x >= pipe_pair.x:
+                    pipe_pair.passed = True
+                    add_pipe = True
+
+        # for r in rem:
+        #     pipes.remove(r)
+
+        if add_pipe:
+            score += 1
+            for genome in gnms:
+                genome.fitness += 5
+            pipes.append(Pipes())
+
+        for bird in birds:
+            if bird.y + bird_imgs[0].get_height() - 10 >= 730 or bird.y < -50:
+                nets.pop(birds.index(bird))
+                gnms.pop(birds.index(bird))
+                birds.pop(birds.index(bird))
 
         base.move()
-        redraw_ai_window(surface, birds, pipes, base)
-        clock.tick(60)
+        redraw_ai_window(surface, birds, pipes, base, score, GEN)
 
-def eval_genomes(genomes, config):
-    for genome_id, genome in genomes:
-        eval_genome(genome, config)
+        # save the bird if they reach score > 100
+        if score > 100:
+            with open("winner", "wb") as f:
+                pickle.dump(nets[0], f)
 
 def run():
     local_dir = os.path.dirname(__file__)
@@ -357,27 +402,35 @@ def run():
     pop.add_reporter(stats)
     pop.add_reporter(neat.StdOutReporter(True))
 
-    winner = pop.run(eval_genomes, 300)
-
-    # Save the winner.
-    with open('winner-feedforward', 'wb') as f:
-        pickle.dump(winner, f)
-
-    print(winner)
+    pop.run(ai_play_game, 50) # eval_genomes = fitness function
 
 def main_menu(win):
-    menu_pos = (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 5)
-    play_game_pos = (SCREEN_WIDTH // 2.8, SCREEN_HEIGHT // 3.5)
-    play_game_opt = score_font.render("Play Game", False, (242, 92, 51))
-    ai_game_pos = (SCREEN_WIDTH // 3.15, SCREEN_HEIGHT // 2.2)
-    ai_game = score_font.render("Let A.I. play", False, (242, 92, 51))
+    """ function to blit the contents of the main menu to the screen """
+    global gen
+
+    gen = 0 # reset the current generation of A.I. birds
+    menu_bg = pygame.transform.scale(menu_img, (int(menu_img.get_width() * 1.5), int(menu_img.get_height() * 1.3)))
+    menu_bg.set_colorkey((255, 255, 255))
+    menu_pos = (SCREEN_WIDTH * 0.12, SCREEN_HEIGHT // 10)
+    intro_pos = (SCREEN_WIDTH * 0.23, SCREEN_HEIGHT // 7)
+    intro = score_font.render("Flappy Bird Clone", False, (188, 91, 63))
+    rndm_pos = (SCREEN_WIDTH * 0.47, SCREEN_HEIGHT // 5)
+    rndm = score_font.render("&", False, (188, 91, 63))
+    intro2_pos = (SCREEN_WIDTH * 0.35, SCREEN_HEIGHT // 3.9)
+    intro2 = score_font.render("NEAT A.I.", False, (188, 91, 63))
+    by_pos = (SCREEN_WIDTH * 0.51, SCREEN_HEIGHT // 3.2)
+    by = small_font.render("by Viktor Stefanov", False, (188, 91, 63))
+
 
     win.blit(background_img, (0, 0))
-    win.blit(menu_img, menu_pos)
-    play = win.blit(play_game_opt, play_game_pos)
-    ai_play = win.blit(ai_game, ai_game_pos)
-    pygame.display.update()
+    win.blit(menu_bg, menu_pos)
+    win.blit(intro, intro_pos)
+    win.blit(rndm, rndm_pos)
+    win.blit(intro2, intro2_pos)
+    win.blit(by, by_pos)
 
+    play_color = (250, 100, 85)
+    ai_color = (250, 100, 85)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -392,6 +445,26 @@ def main_menu(win):
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_q, pygame.K_ESCAPE):
                     pygame.quit(), sys.exit()
+
+        play_game_pos = (SCREEN_WIDTH // 2.8, SCREEN_HEIGHT // 2.3)
+        play_game_opt = score_font.render("Play Game", False, play_color)
+        ai_game_pos = (SCREEN_WIDTH // 3.15, SCREEN_HEIGHT // 1.8)
+        ai_game = score_font.render("Let A.I. play", False, ai_color)
+        play = win.blit(play_game_opt, play_game_pos)
+        ai_play = win.blit(ai_game, ai_game_pos)
+
+        # check if the mouse is over the text on the screen and add a hover effect
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if play.collidepoint(mouse_x, mouse_y) != 0:
+            play_color = 140, 168, 69
+        else:
+            play_color = (250, 100, 85)
+        if ai_play.collidepoint(mouse_x, mouse_y) != 0:
+            ai_color = 140, 168, 69
+        else:
+            ai_color = (250, 100, 85)
+
+        pygame.display.update()
 
 
 if __name__ == "__main__":
