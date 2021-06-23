@@ -1,4 +1,4 @@
-# Flappy Bird Clone
+# Flappy Bird & A.I.
 
 ## Requirements:
 python3+, pygame, neat-python
